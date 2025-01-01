@@ -28,12 +28,12 @@ const limit = Math.max(
   or(parseInt(href.searchParams.get("limit") ?? ""), 100),
 );
 const errorWaitMs = Math.max(
-  1,
+  0,
   or(parseInt(href.searchParams.get("errorWaitMs") ?? ""), 5000),
 );
-const loadWaitMs = Math.max(
-  1,
-  or(parseInt(href.searchParams.get("loadWaitMs") ?? ""), 1000),
+const loadWaitMs = or(
+  parseInt(href.searchParams.get("loadWaitMs") ?? ""),
+  1000,
 );
 
 console.log({
@@ -184,7 +184,7 @@ function VideoPlayer({
             () => {
               setRunning(false);
             },
-            clip.duration * 1000 + loadWaitMs,
+            Math.max(0, clip.duration * 1000 + loadWaitMs),
           );
         }}
         onError={() => {
