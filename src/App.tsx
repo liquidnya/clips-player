@@ -14,6 +14,35 @@ import { useQuery } from "@tanstack/react-query";
 import { HelixClip } from "@twurple/api";
 import { Alert, Card, Spinner } from "react-bootstrap";
 
+const href = new URL(window.location.href);
+const or = (value: number, defaultValue: number) => {
+  if (isNaN(value)) {
+    return defaultValue;
+  }
+  return value;
+};
+const featured =
+  /true|1|yes|y|on/i.exec(href.searchParams.get("featured") ?? "true") != null;
+const limit = Math.max(
+  1,
+  or(parseInt(href.searchParams.get("limit") ?? ""), 100),
+);
+const errorWaitMs = Math.max(
+  1,
+  or(parseInt(href.searchParams.get("errorWaitMs") ?? ""), 5000),
+);
+const loadWaitMs = Math.max(
+  1,
+  or(parseInt(href.searchParams.get("loadWaitMs") ?? ""), 1000),
+);
+
+console.log({
+  featured,
+  limit,
+  errorWaitMs,
+  loadWaitMs,
+});
+
 function useApiClient() {
   const apiClient = useContext(Context);
   const [userId, setUserId] = useState(() => apiClient.userId);
@@ -155,14 +184,14 @@ function VideoPlayer({
             () => {
               setRunning(false);
             },
-            clip.duration * 1000 + 1000,
+            clip.duration * 1000 + loadWaitMs,
           );
         }}
         onError={() => {
           console.log("iframe error");
           setTimeout(() => {
             setRunning(false);
-          }, 5000);
+          }, errorWaitMs);
         }}
         src={url.toString()}
         height="100%"
@@ -350,7 +379,7 @@ function App() {
         }
         const result: HelixClip[] = [];
         const paginator = client.clips.getClipsForBroadcasterPaginated(userId, {
-          isFeatured: true,
+          isFeatured: featured,
         });
         const clips = await paginator.getNext();
         if (signal.aborted) {
@@ -360,10 +389,10 @@ function App() {
         clips.forEach((value) => result.push(value));
         let i = 0;
         while (
-          result.length < 100 &&
+          result.length < limit &&
           clips.length > 0 &&
           paginator.currentCursor !== undefined &&
-          ++i < 100
+          ++i < limit
         ) {
           const clips = await paginator.getNext();
           if (signal.aborted) {
@@ -372,8 +401,8 @@ function App() {
           console.log(clips);
           clips.forEach((value) => result.push(value));
         }
-        if (result.length > 100) {
-          return result.splice(0, 100);
+        if (result.length > limit) {
+          return result.splice(0, limit);
         }
         return result;
       });
