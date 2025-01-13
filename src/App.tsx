@@ -1,4 +1,10 @@
-import { useContext, useEffect, useLayoutEffect, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import "./App.css";
 import { Context } from "./main";
 import { AccessToken } from "@twurple/auth";
@@ -123,9 +129,14 @@ console.log({
 function useApiClient() {
   const apiClient = useContext(Context);
   const [userId, setUserId] = useState(() => apiClient.userId);
-  const setUser = async (token: AccessToken, userId?: string) => {
-    await apiClient.setUser(token, userId).then((userId) => setUserId(userId));
-  };
+  const setUser = useCallback(
+    async (token: AccessToken, userId?: string) => {
+      await apiClient
+        .setUser(token, userId)
+        .then((userId) => setUserId(userId));
+    },
+    [apiClient],
+  );
   return {
     userId,
     setUser,
@@ -296,21 +307,25 @@ function Login({
 
   useEffect(() => {
     if (userId !== null) {
+      console.log("authenticated");
       setState({ type: "authenticated" });
       return;
     }
+    console.log("loading");
     const controller = new AbortController();
     setState({ type: "loading" });
     setTimeout(() => {
       if (controller.signal.aborted) {
         return;
       }
+      console.log("dcf");
       const subscription = deviceCodeGrantFlow({
         clientId: import.meta.env.VITE_CLIENT_ID ?? "",
         twitch: true,
         scopes: [],
       }).subscribe({
         next: (item) => {
+          console.log("item", item);
           if ("deviceCode" in item) {
             setState({
               type: "deviceCode",
@@ -330,6 +345,7 @@ function Login({
           }
         },
         error: (e) => {
+          console.log("error", e);
           console.error(e);
           const responseError = ResponseError.from(e);
           if (responseError != null) {
@@ -345,6 +361,7 @@ function Login({
           }
         },
         complete: () => {
+          console.log("complete");
           setState((value) => {
             if (value.type === "authenticated") {
               // ignore complete in this case
