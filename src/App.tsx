@@ -46,6 +46,7 @@ const loadWaitMs = or(
 const top = href.searchParams.get("top") ?? "{clip.title}";
 const bottom =
   href.searchParams.get("bottom") ?? "clipped by {clip.creatorDisplayName}";
+const zone = href.searchParams.get("zone");
 
 function renderClip(template: string, clip: HelixClip): string {
   const keys: (keyof HelixClip)[] = [
@@ -81,7 +82,11 @@ function renderClip(template: string, clip: HelixClip): string {
       (_value, _key, format: string | undefined) => {
         const value: unknown = clip[key];
         if (format !== undefined && value instanceof Date) {
-          return DateTime.fromJSDate(value).toFormat(format);
+          let date = DateTime.fromJSDate(value);
+          if (zone !== null) {
+            date = date.setZone(zone);
+          }
+          return date.toFormat(format);
         }
         return String(value);
       },
@@ -110,7 +115,11 @@ function renderGame(template: string, game: HelixGame | undefined): string {
         }
         const value: unknown = game[key];
         if (format !== undefined && value instanceof Date) {
-          return DateTime.fromJSDate(value).toFormat(format);
+          let date = DateTime.fromJSDate(value);
+          if (zone !== null) {
+            date = date.setZone(zone);
+          }
+          return date.toFormat(format);
         }
         return String(value);
       },
