@@ -1,7 +1,7 @@
 {
   "name": "clips-player",
   "private": true,
-  "version": "0.4.1",
+  "version": "0.5.0",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@enhances/with-resolvers": "^0.0.5",
     "@js-joda/core": "^5.6.3",
     "@tanstack/react-query": "^5.62.11",
     "@twurple/api": "^7.2.1",
@@ -19,6 +20,7 @@
     "bootstrap": "^5.3.3",
     "escape-string-regexp": "^5.0.0",
     "eslint-plugin-react": "^7.37.3",
+    "eventemitter3": "^5.0.1",
     "luxon": "^3.5.0",
     "react": "^18.3.1",
     "react-bootstrap": "^2.10.7",
@@ -41,6 +43,7 @@
     "prettier": "3.4.2",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.18.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vite-plugin-singlefile": "^2.1.0"
   }
 }

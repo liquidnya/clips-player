@@ -1,13 +1,5 @@
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useState,
-} from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import "./App.css";
-import { Context } from "./main";
-import { AccessToken } from "@twurple/auth";
 import {
   DeviceAuthorizationResponse,
   deviceCodeGrantFlow,
@@ -21,6 +13,7 @@ import { HelixClip, HelixGame } from "@twurple/api";
 import { Alert, Card, Spinner } from "react-bootstrap";
 import escapeStringRegexp from "escape-string-regexp";
 import { DateTime } from "luxon";
+import useDcf from "./auth/hook";
 
 const href = new URL(window.location.href);
 const or = (value: number, defaultValue: number) => {
@@ -132,25 +125,6 @@ console.log({
   errorWaitMs,
   loadWaitMs,
 });
-
-function useApiClient() {
-  const apiClient = useContext(Context);
-  const [userId, setUserId] = useState(() => apiClient.userId);
-  const setUser = useCallback(
-    async (token: AccessToken, userId?: string) => {
-      await apiClient
-        .setUser(token, userId)
-        .then((userId) => setUserId(userId));
-    },
-    [apiClient],
-  );
-  return {
-    userId,
-    setUser,
-    apiClient: apiClient.apiClient,
-    authProvider: apiClient.authProvider,
-  };
-}
 
 function useObs() {
   const [status, setStatus] = useState<OBSStatus | undefined>(undefined);
@@ -307,32 +281,34 @@ function VideoPlayer({
 }
 
 function Login({
-  userId,
+  user,
   setUser,
-}: Pick<ReturnType<typeof useApiClient>, "userId" | "setUser">) {
+}: Pick<ReturnType<typeof useDcf>, "user" | "setUser">) {
   const [state, setState] = useState<State>({ type: "loading" });
 
   useEffect(() => {
-    if (userId !== null) {
-      console.log("authenticated");
+    console.log("login");
+    if (user !== null) {
+      console.log("user authenticated");
       setState({ type: "authenticated" });
       return;
     }
     console.log("loading");
     const controller = new AbortController();
     setState({ type: "loading" });
+    console.log("setTimeout");
     setTimeout(() => {
       if (controller.signal.aborted) {
         return;
       }
-      console.log("dcf");
+      console.log("start flow");
       const subscription = deviceCodeGrantFlow({
         clientId: import.meta.env.VITE_CLIENT_ID ?? "",
         twitch: true,
         scopes: [],
       }).subscribe({
         next: (item) => {
-          console.log("item", item);
+          console.log("flow item", item);
           if ("deviceCode" in item) {
             setState({
               type: "deviceCode",
@@ -368,7 +344,7 @@ function Login({
           }
         },
         complete: () => {
-          console.log("complete");
+          console.log("flow complete");
           setState((value) => {
             if (value.type === "authenticated") {
               // ignore complete in this case
@@ -385,11 +361,11 @@ function Login({
     return () => {
       controller.abort();
     };
-  }, [userId, setUser]);
+  }, [user, setUser]);
 
   if (
     state.type === "loading" ||
-    userId !== null ||
+    user !== null ||
     state.type === "authenticated"
   ) {
     return (
@@ -467,7 +443,7 @@ function Login({
 let id = 0;
 
 function App() {
-  const { userId, setUser, apiClient } = useApiClient();
+  const { storePrefix, error, user, setUser, apiClient } = useDcf();
   //const [messages, setMessages] = useState<React.ReactNode[]>([]);
   const [video, setVideo] = useState<{
     clip: HelixClip;
@@ -478,9 +454,9 @@ function App() {
 
   const { data: clips } = useQuery({
     initialData: [],
-    queryKey: ["clips", userId],
+    queryKey: ["clips", user?.userId ?? "null"],
     queryFn: async ({ signal }) => {
-      if (userId === null) {
+      if (user === null) {
         return [];
       }
       return await apiClient.asIntent(["chat"], async (client) => {
@@ -489,9 +465,12 @@ function App() {
           return [];
         }
         let result: HelixClip[] = [];
-        const paginator = client.clips.getClipsForBroadcasterPaginated(userId, {
-          isFeatured: featured,
-        });
+        const paginator = client.clips.getClipsForBroadcasterPaginated(
+          user.userId,
+          {
+            isFeatured: featured,
+          },
+        );
         const clips = await paginator.getNext();
         if (signal.aborted) {
           return [];
@@ -527,7 +506,7 @@ function App() {
     if (Array.isArray(clips) && clips.length > 0 && !running) {
       const controller = new AbortController();
       setRunning(true);
-      const played = localStorage.getItem("played2");
+      const played = localStorage.getItem(`${storePrefix}played`);
       const availableClipIds = new Set();
       clips.forEach((clip) => availableClipIds.add(clip.clip.id));
       let map: [string, number][];
@@ -556,7 +535,7 @@ function App() {
       const clip = newClips[random];
       map.push([clip.clip.id, new Date().getTime()]);
 
-      localStorage.setItem("played2", JSON.stringify(map));
+      localStorage.setItem(`${storePrefix}played`, JSON.stringify(map));
 
       const key = `${id++}`;
       setVideo({ clip: clip.clip, game: clip.game, key });
@@ -564,19 +543,44 @@ function App() {
         controller.abort();
       };
     }
-  }, [clips, running]);
+  }, [clips, running, storePrefix]);
   const status = useObs();
 
-  if (userId === null) {
+  if (error !== null) {
+    return (
+      <div className="container card-container">
+        <Card className="w-100">
+          <Card.Body className="text-center">
+            <Alert variant={"danger"}>
+              Authentication Error: Please refresh browser source and tryagain
+            </Alert>
+          </Card.Body>
+        </Card>
+      </div>
+    );
+  }
+
+  if (user === null) {
     if (status?.streaming || status?.recording) {
       // safety
-      return null;
+      return (
+        <div className="container card-container">
+          <Card className="w-100">
+            <Card.Body className="text-center">
+              <Alert variant={"danger"}>
+                Login not possible while{" "}
+                {status?.streaming ? "streaming" : "recording"}
+              </Alert>
+            </Card.Body>
+          </Card>
+        </div>
+      );
     }
     return (
       <div className="container card-container">
         <Card className="w-100">
           <Card.Body className="text-center">
-            <Login userId={userId} setUser={setUser} />
+            <Login user={user} setUser={setUser} />
           </Card.Body>
         </Card>
       </div>
