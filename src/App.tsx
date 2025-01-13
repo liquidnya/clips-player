@@ -11,8 +11,10 @@ import {
 } from "./device-code-grant-flow";
 import QRCode from "react-qr-code";
 import { useQuery } from "@tanstack/react-query";
-import { HelixClip } from "@twurple/api";
+import { HelixClip, HelixGame } from "@twurple/api";
 import { Alert, Card, Spinner } from "react-bootstrap";
+import escapeStringRegexp from "escape-string-regexp";
+import { DateTime } from "luxon";
 
 const href = new URL(window.location.href);
 const or = (value: number, defaultValue: number) => {
@@ -35,6 +37,81 @@ const loadWaitMs = or(
   parseInt(href.searchParams.get("loadWaitMs") ?? ""),
   1000,
 );
+const top = href.searchParams.get("top") ?? "{clip.title}";
+const bottom =
+  href.searchParams.get("bottom") ?? "clipped by {clip.creatorDisplayName}";
+
+function renderClip(template: string, clip: HelixClip): string {
+  const keys: (keyof HelixClip)[] = [
+    "id",
+    "url",
+    "embedUrl",
+    "broadcasterId",
+    "creatorId",
+    "creatorDisplayName",
+    "videoId",
+    "gameId",
+    "language",
+    "title",
+    "views",
+    "creationDate",
+    "thumbnailUrl",
+    "duration",
+    "vodOffset",
+    "isFeatured",
+  ];
+
+  let result = template;
+  for (const key of keys) {
+    const regex = new RegExp(
+      "{clip\\.(?<key>" +
+        escapeStringRegexp(key as string) +
+        ")(?:\\:(?<format>[^}]+))?}",
+      "g",
+    );
+    console.log(regex);
+    result = result.replaceAll(
+      regex,
+      (_value, _key, format: string | undefined) => {
+        const value: unknown = clip[key];
+        if (format !== undefined && value instanceof Date) {
+          return DateTime.fromJSDate(value).toFormat(format);
+        }
+        return String(value);
+      },
+    );
+  }
+  return result;
+}
+
+function renderGame(template: string, game: HelixGame | undefined): string {
+  const keys: (keyof HelixGame)[] = ["id", "name", "igdbId", "boxArtUrl"];
+
+  let result = template;
+  for (const key of keys) {
+    const regex = new RegExp(
+      "{game\\.(?<key>" +
+        escapeStringRegexp(key as string) +
+        ")(?:\\:(?<format>[^}]+))?}",
+      "g",
+    );
+    console.log(regex);
+    result = result.replaceAll(
+      regex,
+      (_value, _key, format: string | undefined) => {
+        if (game === undefined) {
+          return "";
+        }
+        const value: unknown = game[key];
+        if (format !== undefined && value instanceof Date) {
+          return DateTime.fromJSDate(value).toFormat(format);
+        }
+        return String(value);
+      },
+    );
+  }
+  return result;
+}
 
 console.log({
   featured,
@@ -155,9 +232,11 @@ type State =
 
 function VideoPlayer({
   clip,
+  game,
   setRunning,
 }: {
   clip: HelixClip;
+  game: HelixGame | undefined;
   setRunning: (value: boolean) => void;
 }) {
   const url = new URL(clip.embedUrl);
@@ -199,9 +278,11 @@ function VideoPlayer({
         allowFullScreen={true}
       />
 
-      <div className="overlay overlay-top">{clip.title}</div>
+      <div className="overlay overlay-top">
+        {renderGame(renderClip(top, clip), game)}
+      </div>
       <div className="overlay overlay-bottom">
-        clipped by {clip.creatorDisplayName}
+        {renderGame(renderClip(bottom, clip), game)}
       </div>
     </>
   );
@@ -304,6 +385,8 @@ function Login({
         Go to{" "}
         <a
           className="text-reset text-decoration-none"
+          target="_blank"
+          rel="noreferrer"
           href={state.verificationUriComplete}
         >
           {url.toString()}
@@ -362,7 +445,11 @@ let id = 0;
 function App() {
   const { userId, setUser, apiClient } = useApiClient();
   //const [messages, setMessages] = useState<React.ReactNode[]>([]);
-  const [video, setVideo] = useState<{ clip: HelixClip; key: string }>();
+  const [video, setVideo] = useState<{
+    clip: HelixClip;
+    game: HelixGame | undefined;
+    key: string;
+  }>();
   const [running, setRunning] = useState(false);
 
   const { data: clips } = useQuery({
@@ -377,7 +464,7 @@ function App() {
         if (signal.aborted) {
           return [];
         }
-        const result: HelixClip[] = [];
+        let result: HelixClip[] = [];
         const paginator = client.clips.getClipsForBroadcasterPaginated(userId, {
           isFeatured: featured,
         });
@@ -402,9 +489,12 @@ function App() {
           clips.forEach((value) => result.push(value));
         }
         if (result.length > limit) {
-          return result.splice(0, limit);
+          result = result.splice(0, limit);
         }
-        return result;
+        const gameIds = new Set(result.map((clip) => clip.gameId));
+        const games = await client.games.getGamesByIds([...gameIds]);
+        const gameMap = new Map(games.map((game) => [game.id, game]));
+        return result.map((clip) => ({ clip, game: gameMap.get(clip.gameId) }));
       });
     },
   });
@@ -415,7 +505,7 @@ function App() {
       setRunning(true);
       const played = localStorage.getItem("played2");
       const availableClipIds = new Set();
-      clips.forEach((clip) => availableClipIds.add(clip.id));
+      clips.forEach((clip) => availableClipIds.add(clip.clip.id));
       let map: [string, number][];
       if (played != null) {
         map = (JSON.parse(played) as [string, number][]).filter(([key]) =>
@@ -432,7 +522,7 @@ function App() {
       // now remove all available clip ids
       map.forEach(([key]) => availableClipIds.delete(key));
       // remove all clips
-      let newClips = clips.filter((clip) => availableClipIds.has(clip.id));
+      let newClips = clips.filter((clip) => availableClipIds.has(clip.clip.id));
       if (newClips.length <= 0) {
         newClips = clips;
         map = [];
@@ -440,12 +530,12 @@ function App() {
 
       const random = Math.floor(Math.random() * newClips.length);
       const clip = newClips[random];
-      map.push([clip.id, new Date().getTime()]);
+      map.push([clip.clip.id, new Date().getTime()]);
 
       localStorage.setItem("played2", JSON.stringify(map));
 
       const key = `${id++}`;
-      setVideo({ clip, key });
+      setVideo({ clip: clip.clip, game: clip.game, key });
       return () => {
         controller.abort();
       };
@@ -471,7 +561,12 @@ function App() {
 
   if (video !== undefined) {
     return (
-      <VideoPlayer key={video.key} clip={video.clip} setRunning={setRunning} />
+      <VideoPlayer
+        key={video.key}
+        clip={video.clip}
+        game={video.game}
+        setRunning={setRunning}
+      />
     );
   }
 

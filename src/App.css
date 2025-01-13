@@ -13,6 +13,7 @@ iframe {
 }
 
 .overlay {
+  white-space-collapse: preserve-breaks;
   position: fixed;
   border: none;
   right: 0;
