@@ -76,7 +76,6 @@ function renderClip(template: string, clip: HelixClip): string {
         ")(?:\\:(?<format>[^}]+))?}",
       "g",
     );
-    console.log(regex);
     result = result.replaceAll(
       regex,
       (_value, _key, format: string | undefined) => {
@@ -106,7 +105,6 @@ function renderGame(template: string, game: HelixGame | undefined): string {
         ")(?:\\:(?<format>[^}]+))?}",
       "g",
     );
-    console.log(regex);
     result = result.replaceAll(
       regex,
       (_value, _key, format: string | undefined) => {
