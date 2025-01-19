@@ -6,7 +6,7 @@ import {
   OAuthError,
   ResponseError,
   TwitchError,
-} from "./device-code-grant-flow";
+} from "./auth/device-code-grant-flow";
 import QRCode from "react-qr-code";
 import { useQuery } from "@tanstack/react-query";
 import { HelixClip, HelixGame } from "@twurple/api";

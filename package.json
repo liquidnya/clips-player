@@ -1,7 +1,7 @@
 {
   "name": "clips-player",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -13,36 +13,36 @@
   },
   "dependencies": {
     "@enhances/with-resolvers": "^0.0.5",
-    "@js-joda/core": "^5.6.3",
-    "@tanstack/react-query": "^5.62.11",
+    "@js-joda/core": "^5.6.4",
+    "@tanstack/react-query": "^5.64.2",
     "@twurple/api": "^7.2.1",
     "@twurple/auth": "^7.2.1",
     "bootstrap": "^5.3.3",
     "escape-string-regexp": "^5.0.0",
-    "eslint-plugin-react": "^7.37.3",
+    "eslint-plugin-react": "^7.37.4",
     "eventemitter3": "^5.0.1",
     "luxon": "^3.5.0",
-    "react": "^18.3.1",
+    "react": "^19.0.0",
     "react-bootstrap": "^2.10.7",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.0.0",
     "react-qr-code": "^2.0.15",
     "rxjs": "^7.8.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
+    "@eslint/js": "^9.18.0",
     "@types/luxon": "^3.4.2",
     "@types/obs-studio": "^2.17.2",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.17.0",
+    "eslint": "^9.18.0",
     "eslint-plugin-react-hooks": "^5.0.0",
-    "eslint-plugin-react-refresh": "^0.4.16",
+    "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.14.0",
     "prettier": "3.4.2",
     "typescript": "~5.6.2",
-    "typescript-eslint": "^8.18.2",
-    "vite": "^6.0.5"
+    "typescript-eslint": "^8.20.0",
+    "vite": "^6.0.7"
   }
 }
