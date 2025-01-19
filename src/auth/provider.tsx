@@ -68,7 +68,7 @@ function DcfProvider({
         return;
       }
       try {
-        const user = await authProvider.getAnyAccessToken();
+        const user = await authProvider.getUserAccessToken();
         if (!controller.signal.aborted) {
           console.log("user", user);
           setUser(user);

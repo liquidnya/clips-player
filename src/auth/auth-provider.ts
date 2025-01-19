@@ -67,6 +67,9 @@ class DeviceFlowAuthProvider implements AuthProvider {
       forceToken: true,
     });
   }
+  async getUserAccessToken(): Promise<AccessTokenWithUserId | null> {
+    return await this.getAccessToken({});
+  }
   async refreshAccessTokenForUser(
     user: UserIdResolvable,
   ): Promise<AccessTokenWithUserId> {

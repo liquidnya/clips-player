@@ -15,6 +15,7 @@ export interface HandlerOptions {
   forceValidation?: boolean;
   scopeSets?: (string[] | undefined)[];
   onRefresh?: (value: DeviceFlowState) => void;
+  loop?: number;
 }
 export type Handler = (
   value: DeviceFlowState,
@@ -55,7 +56,9 @@ export async function validateAccessToken(
   if (tokenInfo.expiryDate == null) {
     newExpiresIn = null;
   } else {
-    newExpiresIn = tokenInfo.expiryDate.getTime() - token.obtainmentTimestamp;
+    newExpiresIn = Math.floor(
+      (tokenInfo.expiryDate.getTime() - token.obtainmentTimestamp) / 1000,
+    );
   }
   changed ||= token.expiresIn != newExpiresIn;
   token.expiresIn = newExpiresIn;
@@ -144,6 +147,28 @@ const validationHandler: Handler = async (currentState, options, next) => {
       ...(options.scopeSets ?? []),
     );
   } catch (e) {
+    if (e instanceof InvalidTokenError) {
+      if (options.loop !== undefined && options.loop >= 2) {
+        // this should hopefully never happen
+        console.error(
+          `loop detected: Retried refresh ${options.loop} times and access token is invalid even though refresh succeeded`,
+        );
+        return handleError(currentState, e, "token validation failed", false);
+      }
+      console.log("token validation failed: Retrying refresh");
+      return refreshHandler(
+        currentState,
+        { ...options, forceRefresh: true },
+        (nextState) =>
+          checkState(nextState, options, (nextState) =>
+            validationHandler(
+              nextState,
+              { ...options, loop: (options.loop ?? 0) + 1 },
+              next,
+            ),
+          ),
+      );
+    }
     return handleError(currentState, e, "token validation failed", false);
   }
   if (result.changed) {

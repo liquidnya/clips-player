@@ -552,7 +552,7 @@ function App() {
         <Card className="w-100">
           <Card.Body className="text-center">
             <Alert variant={"danger"}>
-              Authentication Error: Please refresh browser source and tryagain
+              Authentication Error: Please refresh browser source and try again
             </Alert>
           </Card.Body>
         </Card>
