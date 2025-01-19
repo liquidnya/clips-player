@@ -17,9 +17,9 @@ function toError(error: NonNullable<DeviceFlowState["error"]>): Error {
 
 class DeviceFlowAuthProvider implements AuthProvider {
   private currentScopes: { userId: string; scopes: string[] } | null = null;
-  private errorTimer: number | null = null;
+  private error: { timer: number; id: string } | null = null;
   private controller: LockController = new LockController();
-  private forceValidation = true;
+  private startup = true;
   constructor(
     readonly clientId: string,
     readonly store: SyncStore<DeviceFlowState>,
@@ -88,15 +88,20 @@ class DeviceFlowAuthProvider implements AuthProvider {
     });
   }
   private updateTimer(state: DeviceFlowState | null) {
-    if (state?.error !== null) {
-      if (this.errorTimer === null) {
-        const forceRetryErrorId = state?.error.id;
-        const timeout = Math.min(
-          600_000,
-          Math.pow(1000, state?.error?.count ?? 1),
-        );
-        this.errorTimer = setTimeout(() => {
-          this.errorTimer = null;
+    const error = state?.error ?? null;
+    if (error !== null) {
+      if (this.error === null || this.error.id !== error.id) {
+        clearTimeout(this.error?.timer ?? undefined);
+        const forceRetryErrorId = error.id;
+        const refreshTime =
+          error.time +
+          Math.min(
+            600_000,
+            Math.ceil(1000 * Math.pow(2, (error.count ?? 1) - 1)),
+          );
+        const timeout = Math.max(0, refreshTime - new Date().getTime());
+        const timer = setTimeout(() => {
+          this.error = null;
           // ignore errors
           void this.getAccessToken({
             forceRefresh: false,
@@ -107,11 +112,16 @@ class DeviceFlowAuthProvider implements AuthProvider {
             .then(() => console.log("retry refreshing token succeeded"))
             .catch((e) => console.log("retry refreshing token failed", e));
         }, timeout);
+        this.error = { timer, id: forceRetryErrorId };
       }
-    } else if (this.errorTimer !== null) {
-      clearTimeout(this.errorTimer ?? undefined);
-      this.errorTimer = null;
+    } else if (this.error !== null) {
+      clearTimeout(this.error.timer);
+      this.error = null;
     }
+  }
+  private onStateChange(state: DeviceFlowState | null) {
+    this.updateTimer(state);
+    this.updateCurrentScopes(state);
   }
   private updateCurrentScopes(state: DeviceFlowState | null) {
     if (state === null) {
@@ -157,20 +167,26 @@ class DeviceFlowAuthProvider implements AuthProvider {
         }
         currentState = newState;
       };
-      const newState = await tokenChain(currentState, {
-        clientId: this.clientId,
-        forceRefresh: options.forceRefresh,
-        forceRetryErrorId: options.forceRetryErrorId,
-        scopeSets: options.scopeSets,
-        userId: options.userId,
-        forceValidation: this.forceValidation,
-        // only on refresh: immediatly set the value to the store
-        onRefresh: updateState,
-      });
+      let newState;
+      try {
+        newState = await tokenChain(currentState, {
+          clientId: this.clientId,
+          forceRefresh: options.forceRefresh,
+          // always retry the error on startup
+          forceRetryErrorId: this.startup
+            ? currentState.error?.id
+            : options.forceRetryErrorId,
+          scopeSets: options.scopeSets,
+          userId: options.userId,
+          forceValidation: this.startup,
+          // only on refresh: immediatly set the value to the store
+          onRefresh: updateState,
+        });
+      } finally {
+        this.startup = false;
+      }
       updateState(newState);
-      this.forceValidation = false;
-      this.updateTimer(newState);
-      this.updateCurrentScopes(newState);
+      this.onStateChange(newState);
       // convert DeviceFlowState | null to AccessTokenWithUserId | null
       if (newState === null) {
         return null;
@@ -201,9 +217,8 @@ class DeviceFlowAuthProvider implements AuthProvider {
         };
         ref.set(newState);
         // the token was just validated
-        this.forceValidation = false;
-        this.updateTimer(newState);
-        this.updateCurrentScopes(newState);
+        this.startup = false;
+        this.onStateChange(newState);
       },
       // not passing a lock controller here on purpose
       // lets just always allow setting the user even if the application is shutting down

@@ -100,7 +100,10 @@ function handleError(
 const refreshHandler: Handler = async (currentState, options, next) => {
   if (
     !options.forceRefresh &&
-    !currentState.error?.forceRefresh &&
+    !(
+      currentState.error?.forceRefresh &&
+      options.forceRetryErrorId !== undefined
+    ) &&
     !accessTokenIsExpired(currentState.token)
   ) {
     return await next(currentState);
@@ -132,6 +135,7 @@ const refreshHandler: Handler = async (currentState, options, next) => {
 const validationHandler: Handler = async (currentState, options, next) => {
   if (
     !options.forceValidation &&
+    options.forceRetryErrorId === undefined &&
     currentState.lastVerified !== null &&
     new Date().getTime() - currentState.lastVerified < 3_600_000
   ) {
