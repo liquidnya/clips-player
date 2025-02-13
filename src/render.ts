@@ -17,7 +17,9 @@ export const ClipScheme = z.object({
   language: z.string(),
   title: z.string(),
   views: z.number(),
-  creationDate: z.date().or(z.string().transform((value) => Date.parse(value))),
+  creationDate: z
+    .date()
+    .or(z.string().transform((value) => new Date(Date.parse(value)))),
   thumbnailUrl: z.string(),
   duration: z.number(),
   vodOffset: z.number().nullable(),
