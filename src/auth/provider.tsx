@@ -19,6 +19,7 @@ function DcfProvider({
   store,
   storePrefix,
   intents,
+  scopes,
 }: PropsWithChildren<DcfProviderProps>) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AccessTokenWithUserId | null>(null);
@@ -111,6 +112,7 @@ function DcfProvider({
       apiClient,
       setUser: setUserCallback,
       storePrefix: storePrefixMemo,
+      scopes: scopes ?? [],
     };
   }, [
     isLoading,
@@ -120,6 +122,7 @@ function DcfProvider({
     apiClient,
     setUserCallback,
     storePrefixMemo,
+    scopes,
   ]);
   return <DcfContext.Provider value={context}>{children}</DcfContext.Provider>;
 }

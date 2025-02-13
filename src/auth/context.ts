@@ -11,6 +11,7 @@ export interface DcfContextProps {
   apiClient: ApiClient;
   setUser: (token: AccessToken) => void;
   storePrefix: string;
+  scopes: string[];
 }
 
 const DcfContext = createContext<DcfContextProps | null>(null);

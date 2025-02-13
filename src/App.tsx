@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import "./App.css";
 import {
   DeviceAuthorizationResponse,
   deviceCodeGrantFlow,
@@ -11,9 +10,9 @@ import QRCode from "react-qr-code";
 import { useQuery } from "@tanstack/react-query";
 import { HelixClip, HelixGame } from "@twurple/api";
 import { Alert, Card, Spinner } from "react-bootstrap";
-import escapeStringRegexp from "escape-string-regexp";
-import { DateTime } from "luxon";
 import useDcf from "./auth/hook";
+import { ClipScheme, GameScheme, renderClip, renderGame } from "./render";
+import { z } from "zod";
 
 const href = new URL(window.location.href);
 const or = (value: number, defaultValue: number) => {
@@ -39,85 +38,6 @@ const loadWaitMs = or(
 const top = href.searchParams.get("top") ?? "{clip.title}";
 const bottom =
   href.searchParams.get("bottom") ?? "clipped by {clip.creatorDisplayName}";
-const zone = href.searchParams.get("zone");
-
-function renderClip(template: string, clip: HelixClip): string {
-  const keys: (keyof HelixClip)[] = [
-    "id",
-    "url",
-    "embedUrl",
-    "broadcasterId",
-    "creatorId",
-    "creatorDisplayName",
-    "videoId",
-    "gameId",
-    "language",
-    "title",
-    "views",
-    "creationDate",
-    "thumbnailUrl",
-    "duration",
-    "vodOffset",
-    "isFeatured",
-  ];
-
-  let result = template;
-  for (const key of keys) {
-    const regex = new RegExp(
-      "{clip\\.(?<key>" +
-        escapeStringRegexp(key as string) +
-        ")(?:\\:(?<format>[^}]+))?}",
-      "g",
-    );
-    result = result.replaceAll(
-      regex,
-      (_value, _key, format: string | undefined) => {
-        const value: unknown = clip[key];
-        if (format !== undefined && value instanceof Date) {
-          let date = DateTime.fromJSDate(value);
-          if (zone !== null) {
-            date = date.setZone(zone);
-          }
-          return date.toFormat(format);
-        }
-        return String(value);
-      },
-    );
-  }
-  return result;
-}
-
-function renderGame(template: string, game: HelixGame | undefined): string {
-  const keys: (keyof HelixGame)[] = ["id", "name", "igdbId", "boxArtUrl"];
-
-  let result = template;
-  for (const key of keys) {
-    const regex = new RegExp(
-      "{game\\.(?<key>" +
-        escapeStringRegexp(key as string) +
-        ")(?:\\:(?<format>[^}]+))?}",
-      "g",
-    );
-    result = result.replaceAll(
-      regex,
-      (_value, _key, format: string | undefined) => {
-        if (game === undefined) {
-          return "";
-        }
-        const value: unknown = game[key];
-        if (format !== undefined && value instanceof Date) {
-          let date = DateTime.fromJSDate(value);
-          if (zone !== null) {
-            date = date.setZone(zone);
-          }
-          return date.toFormat(format);
-        }
-        return String(value);
-      },
-    );
-  }
-  return result;
-}
 
 console.log({
   featured,
@@ -246,6 +166,7 @@ function VideoPlayer({
       return window.removeEventListener("message", onMessage);
     };
   }, []);
+
   return (
     <>
       <iframe
@@ -545,6 +466,47 @@ function App() {
     }
   }, [clips, running, storePrefix]);
   const status = useObs();
+
+  useEffect(() => {
+    if (video?.clip) {
+      localStorage.setItem(
+        `${storePrefix}current-clip`,
+        JSON.stringify({
+          id: video.clip.id,
+          url: video.clip.url,
+          embedUrl: video.clip.embedUrl,
+          broadcasterId: video.clip.broadcasterId,
+          creatorId: video.clip.creatorId,
+          creatorDisplayName: video.clip.creatorDisplayName,
+          videoId: video.clip.videoId,
+          gameId: video.clip.gameId,
+          language: video.clip.language,
+          title: video.clip.title,
+          views: video.clip.views,
+          creationDate: video.clip.creationDate.toISOString(),
+          thumbnailUrl: video.clip.thumbnailUrl,
+          duration: video.clip.duration,
+          vodOffset: video.clip.vodOffset,
+          isFeatured: video.clip.isFeatured,
+        } satisfies z.input<typeof ClipScheme>),
+      );
+    } else {
+      localStorage.removeItem(`${storePrefix}current-clip`);
+    }
+    if (video?.game) {
+      localStorage.setItem(
+        `${storePrefix}current-game`,
+        JSON.stringify({
+          id: video.game.id,
+          name: video.game.name,
+          igdbId: video.game.igdbId,
+          boxArtUrl: video.game.boxArtUrl,
+        } satisfies z.input<typeof GameScheme>),
+      );
+    } else {
+      localStorage.removeItem(`${storePrefix}current-game`);
+    }
+  }, [video, storePrefix]);
 
   if (error !== null) {
     return (
