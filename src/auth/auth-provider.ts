@@ -167,24 +167,23 @@ class DeviceFlowAuthProvider implements AuthProvider {
         }
         currentState = newState;
       };
-      let newState;
-      try {
-        newState = await tokenChain(currentState, {
-          clientId: this.clientId,
-          forceRefresh: options.forceRefresh,
-          // always retry the error on startup
-          forceRetryErrorId: this.startup
-            ? currentState.error?.id
-            : options.forceRetryErrorId,
-          scopeSets: options.scopeSets,
-          userId: options.userId,
-          forceValidation: this.startup,
-          // only on refresh: immediatly set the value to the store
-          onRefresh: updateState,
-        });
-      } finally {
-        this.startup = false;
-      }
+      const startup = this.startup;
+      // startup has to be set to false, before updateState is called
+      // otherwise this can cause an endless loop
+      this.startup = false;
+      const newState = await tokenChain(currentState, {
+        clientId: this.clientId,
+        forceRefresh: options.forceRefresh,
+        // always retry the error on startup
+        forceRetryErrorId: startup
+          ? currentState.error?.id
+          : options.forceRetryErrorId,
+        scopeSets: options.scopeSets,
+        userId: options.userId,
+        forceValidation: startup,
+        // only on refresh: immediatly set the value to the store
+        onRefresh: updateState,
+      });
       updateState(newState);
       this.onStateChange(newState);
       // convert DeviceFlowState | null to AccessTokenWithUserId | null

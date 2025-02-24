@@ -396,25 +396,25 @@ function App() {
         if (signal.aborted) {
           return [];
         }
-        console.log(clips);
         clips.forEach((value) => result.push(value));
-        let i = 0;
-        while (
-          result.length < limit &&
-          clips.length > 0 &&
-          paginator.currentCursor !== undefined &&
-          ++i < limit
-        ) {
+        // always fetch all pages, since clips are not sorted by creation date
+        // but do this manually to be able to abort
+        while (paginator.currentCursor !== undefined) {
           const clips = await paginator.getNext();
           if (signal.aborted) {
             return [];
           }
-          console.log(clips);
           clips.forEach((value) => result.push(value));
         }
         if (result.length > limit) {
+          // sort by newest clips first
+          result.sort(
+            (a, b) => b.creationDate.getTime() - a.creationDate.getTime(),
+          );
+          // then take top `limit` clips
           result = result.splice(0, limit);
         }
+        console.log(result);
         const gameIds = new Set(result.map((clip) => clip.gameId));
         const games = await client.games.getGamesByIds([...gameIds]);
         const gameMap = new Map(games.map((game) => [game.id, game]));

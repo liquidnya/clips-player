@@ -87,7 +87,8 @@ function DcfProvider({
         }
       }
     };
-    const onChange = () => void load();
+    // wait a bit (0ms) to load the user state to not cause a big stack trace
+    const onChange = () => void setTimeout(() => load(), 0);
     authProvider.store.addListener("change", onChange);
     void load();
     return () => {

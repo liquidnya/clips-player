@@ -1,4 +1,5 @@
 import { DeviceFlowState } from "./state";
+import { HttpStatusCodeError } from "@twurple/api-call";
 import {
   AccessToken,
   accessTokenIsExpired,
@@ -6,6 +7,7 @@ import {
   InvalidTokenError,
   refreshUserToken,
 } from "@twurple/auth";
+import { z } from "zod";
 
 export interface HandlerOptions {
   clientId: string;
@@ -72,6 +74,21 @@ function handleError(
   forceRefresh: boolean,
 ): DeviceFlowState | null {
   console.error(e);
+  if (e instanceof HttpStatusCodeError && e.statusCode == 400) {
+    try {
+      const message = z
+        .object({
+          message: z.string(),
+        })
+        .parse(JSON.parse(e.body)).message;
+      if (message === "Invalid refresh token") {
+        console.error("Encountered unrecoverable error: Invalid refresh token");
+        return null;
+      }
+    } catch {
+      // ignore
+    }
+  }
   if (e instanceof InvalidTokenError) {
     return null;
   } else {
@@ -197,6 +214,9 @@ const forceRetryHandler: Handler = async (currentState, options, next) => {
         "force retry failed: token might have been refreshed by other tab",
       );
     }
+  } else if (currentState?.error !== null) {
+    // return with error early
+    return currentState;
   }
   return await next(currentState);
 };
