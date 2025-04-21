@@ -237,9 +237,7 @@ function findError<T>(
   e: unknown,
   errors?: Set<unknown>,
 ): T | NotFound {
-  if (errors === undefined) {
-    errors = new Set();
-  }
+  errors ??= new Set();
   if (errors.has(e)) {
     // prevent endless loop
     return notFound;

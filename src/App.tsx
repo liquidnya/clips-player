@@ -364,7 +364,7 @@ function Login({
 let id = 0;
 
 function App() {
-  const { storePrefix, error, user, setUser, apiClient } = useDcf();
+  const { storePrefix, error, user, setUser, apiClient, isLoading } = useDcf();
   //const [messages, setMessages] = useState<React.ReactNode[]>([]);
   const [video, setVideo] = useState<{
     clip: HelixClip;
@@ -516,6 +516,20 @@ function App() {
             <Alert variant={"danger"}>
               Authentication Error: Please refresh browser source and try again
             </Alert>
+          </Card.Body>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container card-container">
+        <Card className="w-100">
+          <Card.Body className="text-center">
+            <Spinner animation="border" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
           </Card.Body>
         </Card>
       </div>
